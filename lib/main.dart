@@ -90,10 +90,10 @@ class BookDB {
       _db = db;
 
       //Create table
-      const create = '''CREATE TABLE IF NOT EXIST BOOK(
-        ID INTEGER PRIMARY KEY AUTOINCREMENT
-        NAME STRING NOT NULL
-        AUTOR STRING NOT NULL
+      const create = '''CREATE TABLE IF NOT EXISTS BOOK (
+        ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        NAME STRING NOT NULL,
+        AUTOR STRING NOT NULL,
         YEAR INT NOT NULL
       )''';
 
@@ -140,6 +140,119 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Biblioapp Beta'),
+      ),
+      body: StreamBuilder(
+        stream: _crudStorage.all(),
+        builder: (context, snapshot) {
+          switch (snapshot.connectionState) {
+            case ConnectionState.active:
+            case ConnectionState.waiting:
+              if (snapshot.data == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final book = snapshot.data as List<Book>;
+              return Column(
+                children: [
+                  ComposerWidget(
+                    onCompose: (name, autor, year) {
+                      print(name);
+                      print(autor);
+                      print(year);
+                    },
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: book.length,
+                      itemBuilder: (context, index) {
+                        return const Text('Hello');
+                      },
+                    ),
+                  ),
+                ],
+              );
+            default:
+              return const Center(child: CircularProgressIndicator());
+          }
+        },
+      ),
+    );
+  }
+}
+
+typedef OnCompose = void Function(String name, String autor, int year);
+
+class ComposerWidget extends StatefulWidget {
+  final OnCompose onCompose;
+  const ComposerWidget({
+    Key? key,
+    required this.onCompose,
+  }) : super(key: key);
+
+  @override
+  State<ComposerWidget> createState() => _ComposerWidgetState();
+}
+
+class _ComposerWidgetState extends State<ComposerWidget> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _autorController;
+  late final TextEditingController _yearController;
+
+  @override
+  void initState() {
+    _nameController = TextEditingController();
+    _autorController = TextEditingController();
+    _yearController = TextEditingController();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _autorController.dispose();
+    _yearController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        children: [
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              hintText: 'Ingrese el nombre',
+            ),
+          ),
+          TextField(
+            controller: _autorController,
+            decoration: const InputDecoration(
+              hintText: 'Ingrese el autor',
+            ),
+          ),
+          TextField(
+            controller: _yearController,
+            decoration: const InputDecoration(
+              hintText: 'Ingrese el año',
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = _nameController.text;
+              final autor = _autorController.text;
+              final year = int.parse(_yearController.text);
+              widget.onCompose(name, autor, year);
+              _nameController.text = '';
+              _autorController.text = '';
+              _yearController.text = '';
+            },
+            child: const Text(
+              'Añadir',
+              style: TextStyle(fontSize: 24),
+            ),
+          ),
+        ],
       ),
     );
   }
