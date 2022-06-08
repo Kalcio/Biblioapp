@@ -47,6 +47,34 @@ class BookDB {
 
   BookDB({required this.dbName});
 
+  //Create
+  Future<bool> create(String name, String autor, int year) async {
+    final db = _db;
+    if (db == null) {
+      return false;
+    }
+    try {
+      final id = await db.insert('BOOK', {
+        'NAME': name,
+        'AUTOR': autor,
+        'YEAR': year,
+      });
+      final book = Book(
+        id: id,
+        name: name,
+        autor: autor,
+        year: year,
+      );
+      _books.add(book);
+      _streamController.add(_books);
+      return true;
+    } catch (e) {
+      print('Error in creating person = $e');
+      return false;
+    }
+  }
+
+  //Read
   Future<List<Book>> _fetchBook() async {
     final db = _db;
     if (db == null) {
@@ -71,28 +99,60 @@ class BookDB {
     }
   }
 
-  Future<bool> create(String name, String autor, int year) async {
+  //Update
+  Future<bool> update(Book book) async {
     final db = _db;
     if (db == null) {
       return false;
     }
     try {
-      final id = await db.insert('BOOK', {
-        'NAME': name,
-        'AUTOR': autor,
-        'YEAR': year,
-      });
-      final book = Book(
-        id: id,
-        name: name,
-        autor: autor,
-        year: year,
+      final updateCount = await db.update(
+        'BOOK',
+        {
+          'NAME': book.name,
+          'AUTOR': book.autor,
+          'YEAR': book.year,
+        },
+        where: 'ID = ?',
+        whereArgs: [book.id],
       );
-      _books.add(book);
-      _streamController.add(_books);
-      return true;
+
+      if (updateCount == 1) {
+        _books.removeWhere((other) => other.id == book.id);
+        _books.add(book);
+        _streamController.add(_books);
+        return true;
+      } else {
+        return false;
+      }
     } catch (e) {
-      print('Error in creating person = $e');
+      print('Actualización del libro fallida, error = $e');
+      return false;
+    }
+  }
+
+  //Delete
+  Future<bool> delete(Book book) async {
+    final db = _db;
+    if (db == null) {
+      return false;
+    }
+    try {
+      final deletedCount = await db.delete(
+        'BOOK',
+        where: 'ID = ?',
+        whereArgs: [book.id],
+      );
+
+      if (deletedCount == 1) {
+        _books.remove(book);
+        _streamController.add(_books);
+        return true;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      print('Error al eliminar $e');
       return false;
     }
   }
@@ -193,6 +253,15 @@ class _HomePageState extends State<HomePage> {
                       itemBuilder: (context, index) {
                         final book = libro[index];
                         return ListTile(
+                          onTap: () async {
+                            final editedBook = await showUpdatedialog(
+                              context,
+                              book,
+                            );
+                            if (editedBook != null) {
+                              await _crudStorage.update(editedBook);
+                            }
+                          },
                           title: Text(book.fullBook),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,8 +275,9 @@ class _HomePageState extends State<HomePage> {
                             onPressed: () async {
                               final shouldDelete =
                                   await showDeleteDialog(context);
-                              print(shouldDelete);
-                              if (shouldDelete) {}
+                              if (shouldDelete) {
+                                await _crudStorage.delete(book);
+                              }
                             },
                             child: const Icon(
                               Icons.disabled_by_default_rounded,
@@ -256,6 +326,58 @@ Future<bool> showDeleteDialog(BuildContext context) {
       return value;
     } else {
       return false;
+    }
+  });
+}
+
+final _nameController = TextEditingController();
+final _autorController = TextEditingController();
+final _yearController = TextEditingController();
+
+Future<Book?> showUpdatedialog(BuildContext context, Book book) {
+  _nameController.text = book.name;
+  _autorController.text = book.autor;
+  _yearController.text = book.year.toString();
+  return showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Ingrese las modificaciones:'),
+            TextField(controller: _nameController),
+            TextField(controller: _autorController),
+            TextField(controller: _yearController),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(null);
+            },
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              final editedBook = Book(
+                id: book.id,
+                name: _nameController.text,
+                autor: _autorController.text,
+                year: int.parse(_yearController.text),
+              );
+              Navigator.of(context).pop(editedBook);
+            },
+            child: Text('Guardar'),
+          ),
+        ],
+      );
+    },
+  ).then((value) {
+    if (value is Book) {
+      return value;
+    } else {
+      return null;
     }
   });
 }
