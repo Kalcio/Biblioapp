@@ -1,4 +1,5 @@
 import 'dart:async';
+// import 'dart:js';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -15,6 +16,8 @@ class Book implements Comparable {
     required this.autor,
     required this.year,
   });
+
+  String get fullBook => '$name - $autor';
 
   Book.fromRow(Map<String, Object?> row)
       : id = row['ID'] as int,
@@ -65,6 +68,32 @@ class BookDB {
     } catch (e) {
       print('Error fetching book = $e');
       return [];
+    }
+  }
+
+  Future<bool> create(String name, String autor, int year) async {
+    final db = _db;
+    if (db == null) {
+      return false;
+    }
+    try {
+      final id = await db.insert('BOOK', {
+        'NAME': name,
+        'AUTOR': autor,
+        'YEAR': year,
+      });
+      final book = Book(
+        id: id,
+        name: name,
+        autor: autor,
+        year: year,
+      );
+      _books.add(book);
+      _streamController.add(_books);
+      return true;
+    } catch (e) {
+      print('Error in creating person = $e');
+      return false;
     }
   }
 
@@ -150,21 +179,42 @@ class _HomePageState extends State<HomePage> {
               if (snapshot.data == null) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final book = snapshot.data as List<Book>;
+              final libro = snapshot.data as List<Book>;
               return Column(
                 children: [
                   ComposerWidget(
-                    onCompose: (name, autor, year) {
-                      print(name);
-                      print(autor);
-                      print(year);
+                    onCompose: (name, autor, year) async {
+                      await _crudStorage.create(name, autor, year);
                     },
                   ),
                   Expanded(
                     child: ListView.builder(
-                      itemCount: book.length,
+                      itemCount: libro.length,
                       itemBuilder: (context, index) {
-                        return const Text('Hello');
+                        final book = libro[index];
+                        return ListTile(
+                          title: Text(book.fullBook),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Autor:${book.autor}'),
+                              Text('Año: ${book.year}'),
+                              Text('ID: ${book.id}'),
+                            ],
+                          ),
+                          trailing: TextButton(
+                            onPressed: () async {
+                              final shouldDelete =
+                                  await showDeleteDialog(context);
+                              print(shouldDelete);
+                              if (shouldDelete) {}
+                            },
+                            child: const Icon(
+                              Icons.disabled_by_default_rounded,
+                              color: Colors.red,
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -177,6 +227,37 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+}
+
+Future<bool> showDeleteDialog(BuildContext context) {
+  return showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        content: const Text('¿Esta seguro de eliminar este libro?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(false);
+            },
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(true);
+            },
+            child: const Text('Eliminar'),
+          )
+        ],
+      );
+    },
+  ).then((value) {
+    if (value is bool) {
+      return value;
+    } else {
+      return false;
+    }
+  });
 }
 
 typedef OnCompose = void Function(String name, String autor, int year);
