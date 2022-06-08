@@ -42,7 +42,7 @@ class BookDB {
   List<Book> _books = [];
   final _streamController = StreamController<List<Book>>.broadcast();
 
-  BookDB(this.dbName);
+  BookDB({required this.dbName});
 
   Future<List<Book>> _fetchBook() async {
     final db = _db;
@@ -107,10 +107,33 @@ class BookDB {
       return false;
     }
   }
+
+  Stream<List<Book>> all() =>
+      _streamController.stream.map((books) => books..sort());
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late final BookDB _crudStorage;
+
+  @override
+  void initState() {
+    _crudStorage = BookDB(dbName: 'db.sqlite');
+    _crudStorage.open();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _crudStorage.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
