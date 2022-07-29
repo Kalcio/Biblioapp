@@ -1,3 +1,4 @@
+import 'package:biblioapp/screens/list.dart';
 import 'package:flutter/material.dart';
 
 class Menu extends StatelessWidget {
@@ -23,7 +24,10 @@ class Menu extends StatelessWidget {
               ),
               title: const Text('Consultar Catálogo'),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ListPage()),
+                );
               },
             ),
             ListTile(
